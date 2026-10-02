@@ -8,6 +8,7 @@ const Firebreak = () => import('@/views/firebreak/index.vue')
 const Fireteam = () => import('@/views/fireteam/index.vue')
 const Equipment = () => import('@/views/equipment/index.vue')
 const Weather = () => import('@/views/weather/index.vue')
+const Weathercal = () => import('@/views/weathercal/index.vue')
 const Firereport = () => import('@/views/firereport/index.vue')
 const Drone = () => import('@/views/drone/index.vue')
 const Campaign = () => import('@/views/campaign/index.vue')
@@ -31,6 +32,7 @@ const router = createRouter({
     { path: '/fireteam', name: 'fireteam', component: Fireteam },
     { path: '/equipment', name: 'equipment', component: Equipment },
     { path: '/weather', name: 'weather', component: Weather },
+    { path: '/weathercal', name: 'weathercal', component: Weathercal },
     { path: '/firereport', name: 'firereport', component: Firereport },
     { path: '/drone', name: 'drone', component: Drone },
     { path: '/campaign', name: 'campaign', component: Campaign },

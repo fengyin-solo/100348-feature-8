@@ -33,6 +33,46 @@
       <button class="btn ghost" type="button" @click="resetFilters">重置条件</button>
     </form>
 
+    <section v-if="calibrating" class="calibration-panel">
+      <h3>
+        提交校准：{{ calibrating['记录编号'] }}（{{ calibrating['观测站点'] }} ·
+        {{ calibrating['观测时间'] }}）
+      </h3>
+      <p class="panel-tip">
+        复测值与原始读数冲突时以复测值为生效口径，原始读数保留在校准归档中可追溯；
+        同一记录只接受先落库的一条校准，站点编号缺失不能落库。
+      </p>
+      <form class="calibration-form" @submit.prevent="submitCalibrationForm">
+        <label>
+          <span>当前读数（气温）</span>
+          <input :value="calibrating['气温']" disabled />
+        </label>
+        <label>
+          <span>站点编号（必填）</span>
+          <input v-model="calForm.站点编号" list="weather-station-options" placeholder="如 FIRE-0001" />
+          <datalist id="weather-station-options">
+            <option v-for="item in stationList" :key="item" :value="item" />
+          </datalist>
+        </label>
+        <label>
+          <span>复测值</span>
+          <input v-model="calForm.复测值" placeholder="复测后的气温读数" />
+        </label>
+        <label>
+          <span>校准标签</span>
+          <select v-model="calForm.校准标签">
+            <option v-for="tag in tagOptions" :key="tag" :value="tag">{{ tag }}</option>
+          </select>
+        </label>
+        <label>
+          <span>校准人</span>
+          <input v-model="calForm.校准人" placeholder="校准员姓名" />
+        </label>
+        <button class="btn primary" type="submit">提交校准</button>
+        <button class="btn ghost" type="button" @click="cancelCalibration">取消</button>
+      </form>
+    </section>
+
     <table class="data-table">
       <thead>
         <tr>
@@ -55,6 +95,7 @@
             >
               {{ action }}
             </button>
+            <button class="link" type="button" @click="openCalibration(row)">校准</button>
           </td>
         </tr>
         <tr v-if="!rows.length">
@@ -65,6 +106,7 @@
 
     <footer class="page-foot">
       <span>共 {{ total }} 条气象观测记录</span>
+      <span v-if="noticeMessage" class="notice-text">{{ noticeMessage }}</span>
       <span v-if="errorMessage" class="error-text">{{ errorMessage }}</span>
     </footer>
   </section>
@@ -74,10 +116,13 @@
 import { computed, onMounted, ref } from 'vue'
 
 import {
+  calibrationTags,
   downloadEntries,
   listEntries,
   moduleMeta,
   runAction as applyAction,
+  stationOptions,
+  submitCalibration,
 } from '@/api/local-service'
 import type { EntryRow } from '@/data/types'
 
@@ -90,8 +135,48 @@ const stats = [{"label": "今日观测数", "value": 0}, {"label": "待审核记
 const rows = ref<EntryRow[]>([])
 const total = ref(0)
 const errorMessage = ref('')
+const noticeMessage = ref('')
 const filters = ref<Record<string, string>>({})
 const filterFields = columns.slice(0, 3)
+
+// 校准表单：标签词表与站点编号候选都走既有取数链路
+const tagOptions = calibrationTags()
+const stationList = stationOptions()
+const calibrating = ref<EntryRow | null>(null)
+const calForm = ref({ 站点编号: '', 复测值: '', 校准标签: '已修正', 校准人: '' })
+
+function openCalibration(row: EntryRow) {
+  errorMessage.value = ''
+  noticeMessage.value = ''
+  calibrating.value = row
+  calForm.value = { 站点编号: '', 复测值: '', 校准标签: '已修正', 校准人: '' }
+}
+
+function cancelCalibration() {
+  calibrating.value = null
+}
+
+function submitCalibrationForm() {
+  if (!calibrating.value) {
+    return
+  }
+  errorMessage.value = ''
+  noticeMessage.value = ''
+  const result = submitCalibration({
+    recordId: Number(calibrating.value.id),
+    站点编号: calForm.value.站点编号,
+    复测值: calForm.value.复测值,
+    校准标签: calForm.value.校准标签,
+    校准人: calForm.value.校准人,
+  })
+  if (!result.ok) {
+    errorMessage.value = result.message
+    return
+  }
+  calibrating.value = null
+  noticeMessage.value = result.message
+  reload()
+}
 const statusSummary = computed(() =>
   statuses.map((status: string) => ({
     status,
@@ -114,6 +199,7 @@ function openCreate() {
 
 function runAction(action: string, row: EntryRow) {
   errorMessage.value = ''
+  noticeMessage.value = ''
   const result = applyAction(meta.key, Number(row.id), action)
   if (!result.ok) {
     errorMessage.value = result.message

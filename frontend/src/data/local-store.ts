@@ -48,6 +48,21 @@ export function saveRows(key: string, rows: EntryRow[]): void {
   }
 }
 
+// 以落库内容为准的提交：重新读 localStorage（绕开内存缓存），在最新快照上改完立刻整体写回。
+// 两个人（两个标签页）同时提交时，后到者能读到先到者已落库的数据，
+// 「只接受先落库的一条」就靠 mutator 里的查重判断；mutator 返回 false 则放弃本次写入。
+export function commitEntries(mutate: (rows: Record<string, EntryRow[]>) => boolean): boolean {
+  const fresh = readStorage()
+  if (!mutate(fresh)) {
+    return false
+  }
+  cache = fresh
+  if (typeof window !== 'undefined' && window.localStorage) {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(fresh))
+  }
+  return true
+}
+
 export function resetRows(key: string): EntryRow[] {
   const rows = clone(SEED_ROWS[key] ?? [])
   saveRows(key, rows)

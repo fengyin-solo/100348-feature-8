@@ -24,6 +24,8 @@
       </span>
     </p>
 
+    <p class="order-hint">关注顺序随气象校准归档联动更新：站点最近一次已生效校准的复测气温越高，监测点越靠前。</p>
+
     <form class="filter-bar" @submit.prevent="reload">
       <label v-for="field in filterFields" :key="field" class="filter-item">
         <span>{{ field }}</span>
@@ -82,7 +84,7 @@ import {
 import type { EntryRow } from '@/data/types'
 
 const meta = moduleMeta('firewatch')
-const columns = ["监测点编号", "监测区域", "火险等级", "风力等级", "相对湿度", "气温读数", "监测时间", "监测状态"]
+const columns = ["关注顺序", "监测点编号", "监测区域", "火险等级", "风力等级", "相对湿度", "气温读数", "监测时间", "监测状态"]
 const actions = ["更新等级", "解除预警", "升级预警"]
 const statuses = ["正常", "蓝色预警", "黄色预警", "橙色预警", "红色预警"]
 const stats = [{"label": "监测点数", "value": 0}, {"label": "红色预警数", "value": 0}, {"label": "今日新增预警", "value": 0}]
@@ -91,7 +93,7 @@ const rows = ref<EntryRow[]>([])
 const total = ref(0)
 const errorMessage = ref('')
 const filters = ref<Record<string, string>>({})
-const filterFields = columns.slice(0, 3)
+const filterFields = ["监测点编号", "监测区域", "火险等级"]
 const statusSummary = computed(() =>
   statuses.map((status: string) => ({
     status,
@@ -122,11 +124,19 @@ function runAction(action: string, row: EntryRow) {
   reload()
 }
 
+// 关注顺序由气象校准归档联动写回：有顺序号的按号排，没有（存量数据）的排在后面
+function orderOf(row: EntryRow): number {
+  const value = Number(row['关注顺序'])
+  return Number.isFinite(value) && value > 0 ? value : Number.MAX_SAFE_INTEGER
+}
+
 function reload() {
   errorMessage.value = ''
   try {
     const payload = listEntries(meta.key, filters.value)
-    rows.value = payload.items
+    rows.value = [...payload.items].sort(
+      (a, b) => orderOf(a) - orderOf(b) || Number(a.id) - Number(b.id),
+    )
     total.value = payload.total
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '火险监测列表读取失败'
