@@ -54,6 +54,20 @@ export function resetRows(key: string): EntryRow[] {
   return rows
 }
 
+// 绕过内存缓存直读落库状态：并发校准以 localStorage 里的这份为准，不用本标签页的旧缓存。
+export function readPersisted(): Record<string, EntryRow[]> {
+  cache = readStorage()
+  return cache
+}
+
+// 整包写回并刷新缓存：校准和联动重排在一次写入里完成，避免写一半被另一标签页插队。
+export function persistAll(rows: Record<string, EntryRow[]>): void {
+  cache = rows
+  if (typeof window !== 'undefined' && window.localStorage) {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(rows))
+  }
+}
+
 export function storageKey(): string {
   return STORAGE_KEY
 }

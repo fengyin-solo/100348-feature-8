@@ -75,6 +75,7 @@ import { computed, onMounted, ref } from 'vue'
 
 import {
   downloadEntries,
+  ensureFirewatchAttention,
   listEntries,
   moduleMeta,
   runAction as applyAction,
@@ -82,7 +83,7 @@ import {
 import type { EntryRow } from '@/data/types'
 
 const meta = moduleMeta('firewatch')
-const columns = ["监测点编号", "监测区域", "火险等级", "风力等级", "相对湿度", "气温读数", "监测时间", "监测状态"]
+const columns = ["监测点编号", "监测区域", "火险等级", "风力等级", "相对湿度", "气温读数", "监测时间", "监测状态", "关注顺序"]
 const actions = ["更新等级", "解除预警", "升级预警"]
 const statuses = ["正常", "蓝色预警", "黄色预警", "橙色预警", "红色预警"]
 const stats = [{"label": "监测点数", "value": 0}, {"label": "红色预警数", "value": 0}, {"label": "今日新增预警", "value": 0}]
@@ -133,5 +134,9 @@ function reload() {
   }
 }
 
-onMounted(reload)
+onMounted(() => {
+  // 老数据没有关注顺序字段时先补排一次；气象校准落库后由服务层自动重排。
+  ensureFirewatchAttention()
+  reload()
+})
 </script>
